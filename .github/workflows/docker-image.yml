@@ -75,6 +75,27 @@ jobs:
           # Force overwrite file
           cp -f .env.${{ steps.tag.outputs.BRANCH }} $TARGET_DIR/.env.${{ steps.tag.outputs.BRANCH }}
 
+      - name: Send env + tag to VM B via webhook
+        run: |
+          TARGET_DIR=/opt/project/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}
+          
+          ENV_FILE=$TARGET_DIR/.env.${{ steps.tag.outputs.BRANCH }}
+          
+          echo "👉 Encode file: $ENV_FILE"
+          
+          # Encode base64 (1 dòng)
+          ENV_BASE64=$(base64 -w 0 $ENV_FILE)
+          
+          echo "👉 Sending webhook..."
+          
+          curl -X POST http://keycloak.safelink.viotech.local:9005/deploy \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo\": \"${{ github.event.repository.name }}\",
+              \"branch\": \"${{ steps.tag.outputs.BRANCH }}\",
+              \"tag\": \"${{ steps.tag.outputs.TAG }}\",
+              \"env\": \"$ENV_BASE64\"
+            }"
 
       - name: Show result
         run: |
