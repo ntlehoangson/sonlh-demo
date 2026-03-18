@@ -1,0 +1,73 @@
+name: CI - Build & Push Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'dev-*'
+      - 'uat-*'
+
+env:
+  DOCKER_REGISTRY: localhost:5000
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set tag
+        id: tag
+        run: |
+          # ✅ Get tag from GITHUB_REF
+          TAG=${GITHUB_REF#refs/tags/}
+          
+          # ✅ Detect branch từ tag name
+          if [[ "$TAG" == dev-* ]]; then
+            BRANCH="dev"
+          elif [[ "$TAG" == uat-* ]]; then
+            BRANCH="uat"
+          else
+            BRANCH="main"
+          fi
+          
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "BRANCH=${BRANCH}" >> $GITHUB_OUTPUT
+
+      - name: Build image
+        run: |
+          docker compose \
+            -f docker-compose.${{ steps.tag.outputs.BRANCH }}.yaml \
+            --env-file .env.${{ steps.tag.outputs.BRANCH }} \
+            build
+
+      - name: Tag image
+        run: |
+          # ✅ Tag với TAG name
+          docker tag \
+            ${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest \
+            ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:${{ steps.tag.outputs.TAG }}
+          
+          # ✅ Tag với branch-latest
+          docker tag \
+             ${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest \
+            ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest
+
+      - name: Push to registry
+        run: |
+          # ✅ Push tag
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:${{ steps.tag.outputs.TAG }}
+          
+          # ✅ Push latest
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest
+
+      - name: Show result
+        run: |
+          echo "✅ Build & Push thành công!"
+          echo "🏷️  Tag      : ${{ steps.tag.outputs.TAG }}"
+          echo "🌿 Branch    : ${{ steps.tag.outputs.BRANCH }}"
+          echo "📦 Image 1   : ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:${{ steps.tag.outputs.TAG }}"
+          echo "📦 Image 2   : ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest"
+          echo "🕐 Time      : $(date '+%Y-%m-%d %H:%M:%S')"
