@@ -63,6 +63,19 @@ jobs:
           # ✅ Push latest
           docker push ${{ env.DOCKER_REGISTRY }}/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}:latest
 
+      - name: Copy env file to server folder
+        run: |
+          TARGET_DIR=/opt/project/${{ github.event.repository.name }}-${{ steps.tag.outputs.BRANCH }}
+
+          echo "👉 Target dir: $TARGET_DIR"
+
+          # Tạo folder nếu chưa có
+          mkdir -p $TARGET_DIR
+
+          # Force overwrite file
+          cp -f .env.${{ steps.tag.outputs.BRANCH }} $TARGET_DIR/.env.${{ steps.tag.outputs.BRANCH }}
+
+
       - name: Show result
         run: |
           echo "✅ Build & Push thành công!"
